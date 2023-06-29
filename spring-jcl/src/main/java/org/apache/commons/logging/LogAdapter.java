@@ -47,27 +47,41 @@ final class LogAdapter {
 
 	private static final LogApi logApi;
 
+	// 通过下面的这个静态代码块，我们可以看到，spring-jcl的日志适配器，优先使用log4j2，其次是slf4j，最后是jul
+	// spring5非常想让你用log4j2来进行日志打印
 	static {
+		// 首先判断是否存在log4j2的核心依赖
 		if (isPresent(LOG4J_SPI)) {
+			// 如果确实存在log4j2的核心依赖，那么我们就需要判断是否存在log4j2的slf4j桥接器
+			// 只有同时存在slf4j的核心依赖和log4j2的slf4j桥接器，才会使用slf4j来管理日志
+			// 从这一点就看出来spring5非常想让你用log4j2来进行日志打印，即使你同时引入了log4j核心依赖和slf4j
+			// 它也是会让你用log4j来进行日志打印，而不是slf4j管理日志技术
+			// 只有当你既存在slf4j核心依赖，又存在log4j2的slf4j桥接器，才会使用slf4j来管理日志
+			// 当同时存在这两个东西的时候，就是告诉spring我强烈想用slf4j来管理日志
+			// 其实仔细想一想如果同时存在slf4j核心依赖和log4j2的slf4j桥接器时，log4j2的日志本来就会被转接到slf4j上去管理，再转换为别的日志技术，本身就无法使用log4j了
 			if (isPresent(LOG4J_SLF4J_PROVIDER) && isPresent(SLF4J_SPI)) {
 				// log4j-to-slf4j bridge -> we'll rather go with the SLF4J SPI;
 				// however, we still prefer Log4j over the plain SLF4J API since
 				// the latter does not have location awareness support.
 				logApi = LogApi.SLF4J_LAL;
 			}
+			// 如果没有同时存在slf4j核心依赖和log4j2的slf4j桥接器，则使用log4j2来管理日志
 			else {
 				// Use Log4j 2.x directly, including location awareness support
 				logApi = LogApi.LOG4J;
 			}
 		}
+		// 如果没有引入log4j2的依赖，那么我们就需要判断是否存在slf4j的核心依赖，如果存在则使用slf4j管理日志
 		else if (isPresent(SLF4J_SPI)) {
 			// Full SLF4J SPI including location awareness support
 			logApi = LogApi.SLF4J_LAL;
 		}
+		// 我们可以直接认为SLF4J_SPI和SLF4J_API都是slf4j的核心依赖
 		else if (isPresent(SLF4J_API)) {
 			// Minimal SLF4J API without location awareness support
 			logApi = LogApi.SLF4J;
 		}
+		// 如果上述依赖都没有，我们就直接使用jdk默认的jul来打印日志
 		else {
 			// java.util.logging as default
 			logApi = LogApi.JUL;
