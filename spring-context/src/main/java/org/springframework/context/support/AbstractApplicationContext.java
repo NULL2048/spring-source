@@ -539,12 +539,14 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
+				// 创建一个事件多播器
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
 				onRefresh();
 
 				// Check for listener beans and register them.
+				// 将监听器注册到事件多播器中
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
@@ -586,6 +588,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// Switch to active.
 		this.startupDate = System.currentTimeMillis();
 		this.closed.set(false);
+		// 只有激活，才能执行getBean()方法
 		this.active.set(true);
 
 		if (logger.isDebugEnabled()) {
@@ -616,6 +619,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 		// Allow for the collection of early ApplicationEvents,
 		// to be published once the multicaster is available...
+		// 准备早期事件
 		this.earlyApplicationEvents = new LinkedHashSet<>();
 	}
 
@@ -823,21 +827,31 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void registerListeners() {
 		// Register statically specified listeners first.
+		// 获取容器中所有的监听器对象
+		// 这个时候正常流程是不会有监听器的，除非手动调用addApplicationListeners()
 		for (ApplicationListener<?> listener : getApplicationListeners()) {
+			// 把监听器挨个的注册到我们的多播器上去
 			getApplicationEventMulticaster().addApplicationListener(listener);
 		}
 
+
+		// 这里是为了防止懒加载监听器漏网
+		// 获取bean定义中的监听器对象    接口方式实现的监听就是在这里注册到多播器里面的
 		// Do not initialize FactoryBeans here: We need to leave all regular beans
 		// uninitialized to let post-processors apply to them!
 		String[] listenerBeanNames = getBeanNamesForType(ApplicationListener.class, true, false);
+		// 把监听器的名称注册到我们的事件多播器上
 		for (String listenerBeanName : listenerBeanNames) {
 			getApplicationEventMulticaster().addApplicationListenerBean(listenerBeanName);
 		}
 
+		// 在这里获取早期事件
 		// Publish early application events now that we finally have a multicaster...
 		Set<ApplicationEvent> earlyEventsToProcess = this.earlyApplicationEvents;
+		// 在这里赋null。 也就是在此之后都就没有早期事件了
 		this.earlyApplicationEvents = null;
 		if (!CollectionUtils.isEmpty(earlyEventsToProcess)) {
+			// 通过多播器进行播发早期事件
 			for (ApplicationEvent earlyEvent : earlyEventsToProcess) {
 				getApplicationEventMulticaster().multicastEvent(earlyEvent);
 			}
